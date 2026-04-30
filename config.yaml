@@ -1,0 +1,46 @@
+# 窗口不透明度设置 (0-255)
+opacity:
+  focused: 220
+  unfocused: 245
+
+# 毛玻璃效果设置
+blur:
+  color: "333333"
+  intensity: 64
+  bounds_mode: "client"  # 窗口边界模式: client | extended | window
+  # 边界内缩/外扩 (像素, 允许负数)
+  padding:
+    left: 0
+    top: 0
+    right: 0
+    bottom: 0
+  # 毛玻璃窗口圆角
+  rounded_corners:
+    enabled: true
+    radius: 16
+
+# 排除规则
+exclude:
+  # 按窗口类名排除 (系统组件)
+  classes:
+    - Progman
+    - WorkerW
+    - Shell_TrayWnd
+    - Windows.UI.Core.CoreWindow
+    - ConsoleWindowClass
+  # 按窗口标题排除 (包含匹配)
+  titles:
+    - "任务管理器"
+    - "Task Manager"
+    - "Pixpin"
+  # 按进程名排除 (支持通配符*, 不区分大小写)
+  executables:
+    - "Pixpin.exe"
+    - "Flow.Launcher.exe"
+
+# 清理策略
+cleanup:
+  # 启动时清理所有已透明窗口
+  reset_on_start: true
+  # 退出时恢复本程序修改过的窗口
+  reset_on_exit: true

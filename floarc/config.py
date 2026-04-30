@@ -3,6 +3,7 @@ import yaml
 
 DEFAULT_CONFIG = {
     "opacity": {
+        "enabled": True,
         "focused": 220,
         "unfocused": 245
     },
@@ -18,7 +19,7 @@ DEFAULT_CONFIG = {
         },
         "rounded_corners": {
             "enabled": True,
-            "radius": 15,
+            "radius": 16,
             "mode": "dwm"
         }
     },
@@ -30,7 +31,10 @@ DEFAULT_CONFIG = {
             "Windows.UI.Core.CoreWindow",
             "ConsoleWindowClass"
         ],
-        "titles": ["任务管理器", "Task Manager"],
+        "titles": [
+            "任务管理器",
+            "Task Manager"
+        ],
         "executables": []
     },
     "cleanup": {

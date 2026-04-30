@@ -18,6 +18,9 @@ class BlurTracker:
     def _get_opacity_settings(self):
         return self.cfg.get("opacity", {})
 
+    def _is_transparency_enabled(self):
+        return bool(self._get_opacity_settings().get("enabled", True))
+
     def _get_padding(self):
         padding = self._get_blur_settings().get("padding", {})
         return {
@@ -46,6 +49,17 @@ class BlurTracker:
         if isinstance(rounded, dict):
             return str(rounded.get("mode", "region")).lower()
         return "region"
+
+    def _log_transparency(self, hwnd, alpha, reason):
+        handle_hex = f"0x{int(hwnd):X}"
+        print(f"Transparency set: hwnd={handle_hex} alpha={alpha} reason={reason}")
+
+    def _apply_transparency(self, hwnd, alpha, reason):
+        if not self._is_transparency_enabled():
+            return False
+        winapi.set_window_transparency(hwnd, alpha)
+        self._log_transparency(hwnd, alpha, reason)
+        return True
 
     def should_exclude_window(self, hwnd):
         if not hwnd or hwnd == self.blur_hwnd:
@@ -130,8 +144,7 @@ class BlurTracker:
 
         winapi.apply_rounding(
             self.blur_hwnd,
-            w,
-            h,
+            w, h,
             self._get_rounding_radius(),
             self._get_rounding_mode(),
         )
@@ -142,30 +155,22 @@ class BlurTracker:
 
         if fg_hwnd != self.current_target_hwnd:
             if self.current_target_hwnd and winapi.user32.IsWindow(self.current_target_hwnd):
-                winapi.set_window_transparency(
-                    self.current_target_hwnd,
-                    self._get_opacity_settings().get("unfocused", 245),
-                )
-                self.touched_hwnds.add(self.current_target_hwnd)
+                unfocused_alpha = self._get_opacity_settings().get("unfocused", 245)
+                if self._apply_transparency(self.current_target_hwnd, unfocused_alpha, "unfocused"):
+                    self.touched_hwnds.add(self.current_target_hwnd)
 
             if self.is_valid_window(fg_hwnd):
                 self.current_target_hwnd = fg_hwnd
-                winapi.set_window_transparency(
-                    self.current_target_hwnd,
-                    self._get_opacity_settings().get("focused", 220),
-                )
-                self.touched_hwnds.add(self.current_target_hwnd)
+                focused_alpha = self._get_opacity_settings().get("focused", 220)
+                if self._apply_transparency(self.current_target_hwnd, focused_alpha, "focused"):
+                    self.touched_hwnds.add(self.current_target_hwnd)
                 self.blur_last_rect = None
             else:
                 self.current_target_hwnd = None
                 self.blur_last_rect = None
                 winapi.user32.SetWindowPos(
                     self.blur_hwnd,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
+                    0, 0, 0, 0, 0,
                     winapi.SWP_NOMOVE
                     | winapi.SWP_NOSIZE
                     | winapi.SWP_NOACTIVATE
@@ -185,11 +190,7 @@ class BlurTracker:
         if self.blur_hwnd and winapi.user32.IsWindow(self.blur_hwnd):
             winapi.user32.SetWindowPos(
                 self.blur_hwnd,
-                0,
-                0,
-                0,
-                0,
-                0,
+                0, 0, 0, 0, 0,
                 winapi.SWP_NOMOVE
                 | winapi.SWP_NOSIZE
                 | winapi.SWP_NOACTIVATE

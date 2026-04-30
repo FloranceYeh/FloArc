@@ -1,7 +1,8 @@
 # 窗口不透明度设置 (0-255)
 opacity:
+  enabled: true   # 是否启用窗口透明度
   focused: 220
-  unfocused: 245
+  unfocused: 230
 
 # 毛玻璃效果设置
 blur:
@@ -18,6 +19,7 @@ blur:
   rounded_corners:
     enabled: true
     radius: 16
+    mode: "dwm"  # 圆角实现: dwm | region
 
 # 排除规则
 exclude:
@@ -32,7 +34,6 @@ exclude:
   titles:
     - "任务管理器"
     - "Task Manager"
-    - "Pixpin"
   # 按进程名排除 (支持通配符*, 不区分大小写)
   executables:
     - "Pixpin.exe"
@@ -44,3 +45,6 @@ cleanup:
   reset_on_start: true
   # 退出时恢复本程序修改过的窗口
   reset_on_exit: true
+  # 退出时恢复所有已透明窗口
+  reset_all_on_exit: true
+

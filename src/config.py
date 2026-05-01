@@ -9,19 +9,9 @@ DEFAULT_CONFIG = {
     },
     "blur": {
         "color": "FFFFFF",
-        "intensity": 64,
-        "bounds_mode": "client",
-        "padding": {
-            "left": 0,
-            "top": 0,
-            "right": 0,
-            "bottom": 0
-        },
-        "rounded_corners": {
-            "enabled": True,
-            "radius": 16,
-            "mode": "dwm"
-        }
+        "opacity": 128,
+        "alpha": 255,
+        "animate_duration": 200
     },
     "exclude": {
         "classes": [
@@ -36,11 +26,6 @@ DEFAULT_CONFIG = {
             "Task Manager"
         ],
         "executables": []
-    },
-    "cleanup": {
-        "reset_on_start": True,
-        "reset_on_exit": True,
-        "reset_all_on_exit": True
     }
 }
 

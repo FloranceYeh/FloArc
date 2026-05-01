@@ -1,9 +1,9 @@
 import os
 import tkinter as tk
 
-from floarc.config import load_config
-from floarc import winapi
-from floarc.tracker import BlurTracker, reset_transparency_for_all_windows
+from src.config import load_config
+from src import winapi
+from src.tracker import BlurTracker
 
 CONFIG_FILE = "config.yaml"
 
@@ -13,9 +13,6 @@ def main():
 
     print("🌟 FloArc Started...")
     print(f"📄 Current Config: {os.path.abspath(CONFIG_FILE)}")
-
-    if cfg.get("cleanup", {}).get("reset_on_start", True):
-        reset_transparency_for_all_windows(cfg)
 
     root = tk.Tk()
     root.overrideredirect(True)
@@ -36,7 +33,7 @@ def main():
         | winapi.WS_EX_TOOLWINDOW,
     )
 
-    winapi.apply_acrylic_blur(blur_hwnd, cfg["blur"]["color"], cfg["blur"]["intensity"])
+    winapi.apply_acrylic_blur(blur_hwnd, cfg["blur"]["color"], cfg["blur"]["opacity"], cfg["blur"]["alpha"])
 
     tracker = BlurTracker(cfg, root, blur_hwnd)
     tracker.tick()

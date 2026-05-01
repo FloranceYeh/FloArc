@@ -1,25 +1,14 @@
-# 窗口不透明度设置 (0-255)
-opacity:
+windows_opacity:
   enabled: true   # 是否启用窗口透明度
-  focused: 220
-  unfocused: 230
+  focused: -1
+  unfocused: -1
 
 # 毛玻璃效果设置
 blur:
   color: "333333"
-  intensity: 64
-  bounds_mode: "client"  # 窗口边界模式: client | extended | window
-  # 边界内缩/外扩 (像素, 允许负数)
-  padding:
-    left: 0
-    top: 0
-    right: 0
-    bottom: 0
-  # 毛玻璃窗口圆角
-  rounded_corners:
-    enabled: true
-    radius: 16
-    mode: "dwm"  # 圆角实现: dwm | region
+  opacity: 64
+  alpha: 255
+  animate_duration: 200
 
 # 排除规则
 exclude:
@@ -38,13 +27,3 @@ exclude:
   executables:
     - "Pixpin.exe"
     - "Flow.Launcher.exe"
-
-# 清理策略
-cleanup:
-  # 启动时清理所有已透明窗口
-  reset_on_start: true
-  # 退出时恢复本程序修改过的窗口
-  reset_on_exit: true
-  # 退出时恢复所有已透明窗口
-  reset_all_on_exit: true
-

@@ -1,6 +1,7 @@
 import os
 import ctypes
 from ctypes import wintypes, c_int, Structure, POINTER, byref, sizeof
+import time
 
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
@@ -52,44 +53,41 @@ DWMWCP_DEFAULT = 0
 DWMWCP_DONOTROUND = 1
 DWMWCP_ROUND = 2
 
+AW_ACTIVATE = 0x00020000
+AW_BLEND = 0x00080000
+AW_HIDE = 0x00010000
 
-def get_gradient_color(hex_color, intensity):
+TIMER_ID = 1001
+
+
+def _clamp_byte(value, default=255):
+    try:
+        return max(0, min(255, int(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def get_gradient_color(hex_color, opacity):
     try:
         r = int(hex_color[0:2], 16)
         g = int(hex_color[2:4], 16)
         b = int(hex_color[4:6], 16)
     except (TypeError, ValueError):
         r, g, b = 255, 255, 255
-    return (int(intensity) << 24) | (b << 16) | (g << 8) | r
+    alpha = _clamp_byte(opacity, default=64)
+    return (alpha << 24) | (b << 16) | (g << 8) | r
 
 
-def apply_acrylic_blur(hwnd, hex_color, intensity):
+def apply_acrylic_blur(hwnd, hex_color, blur_opacity, blur_alpha):
     accent = ACCENT_POLICY()
     accent.AccentState = 4
-    accent.GradientColor = get_gradient_color(hex_color, intensity)
+    accent.GradientColor = get_gradient_color(hex_color, blur_opacity)
 
     data = WINDOWCOMPOSITIONATTRIBDATA()
     data.Attribute = 19
     data.SizeOfData = sizeof(accent)
     data.Data = ctypes.cast(byref(accent), POINTER(ACCENT_POLICY))
     user32.SetWindowCompositionAttribute(hwnd, byref(data))
-
-
-def set_window_transparency(hwnd, alpha):
-    if not user32.IsWindow(hwnd):
-        return
-    style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-    user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED)
-    user32.SetLayeredWindowAttributes(hwnd, 0, int(alpha), LWA_ALPHA)
-
-
-def reset_window_transparency(hwnd):
-    if not user32.IsWindow(hwnd):
-        return
-    style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-    if not (style & WS_EX_LAYERED):
-        return
-    user32.SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA)
 
 
 def get_window_text(hwnd):

@@ -7,7 +7,7 @@ windows_opacity:
 blur:
   color: "333333"
   opacity: 32    # 0 - 255
-  alpha: 240    # 0 - 255
+  alpha: 220    # 0 - 255
   animate_duration: 500
 
 # 排除规则

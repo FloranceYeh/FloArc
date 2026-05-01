@@ -2,15 +2,15 @@ import os
 import yaml
 
 DEFAULT_CONFIG = {
-    "opacity": {
+    "windows_opacity": {
         "enabled": True,
-        "focused": 220,
-        "unfocused": 245
+        "focused": -1,
+        "unfocused": -1
     },
     "blur": {
-        "color": "FFFFFF",
-        "opacity": 128,
-        "alpha": 255,
+        "color": "333333",
+        "opacity": 32,
+        "alpha": 220,
         "animate_duration": 200
     },
     "exclude": {

@@ -1,0 +1,56 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build executable
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed --name FloArc main.py
+
+      - name: Package release files
+        shell: pwsh
+        run: |
+          $releaseDir = "release"
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          Copy-Item "dist\FloArc.exe" $releaseDir
+          Copy-Item "config.yaml" $releaseDir
+
+          $zipPath = "FloArc-windows-x64.zip"
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath $zipPath -Force
+
+          Get-FileHash $zipPath -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash)  $zipPath" } |
+            Set-Content "FloArc-windows-x64.sha256"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            FloArc-windows-x64.zip
+            FloArc-windows-x64.sha256
+          generate_release_notes: true

@@ -122,6 +122,3 @@ class BlurTracker:
                 | winapi.SWP_NOACTIVATE
                 | winapi.SWP_HIDEWINDOW,
             )
-
-        if self.root is not None:
-            self.root.destroy()

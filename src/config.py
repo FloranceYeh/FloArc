@@ -4,8 +4,8 @@ import yaml
 DEFAULT_CONFIG = {
     "windows_opacity": {
         "enabled": True,
-        "focused": -1,
-        "unfocused": -1
+        "focused": 220,
+        "unfocused": 245
     },
     "blur": {
         "color": "333333",

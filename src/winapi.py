@@ -35,6 +35,7 @@ WS_EX_LAYERED = 0x00080000
 WS_EX_TRANSPARENT = 0x00000020
 WS_EX_NOACTIVATE = 0x08000000
 WS_EX_TOOLWINDOW = 0x00000080
+LWA_COLORKEY = 0x00000001
 LWA_ALPHA = 0x00000002
 
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
@@ -91,8 +92,56 @@ def apply_acrylic_blur(hwnd, hex_color, blur_opacity, blur_alpha):
     set_window_alpha(hwnd, blur_alpha)
 
 
+def get_window_exstyle(hwnd):
+    return user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+
+
+def set_window_exstyle(hwnd, exstyle):
+    user32.SetWindowLongW(hwnd, GWL_EXSTYLE, exstyle)
+
+
 def set_window_alpha(hwnd, alpha):
     user32.SetLayeredWindowAttributes(hwnd, 0, _clamp_byte(alpha), LWA_ALPHA)
+
+
+def get_layered_window_alpha(hwnd):
+    color_key = wintypes.DWORD()
+    alpha = wintypes.BYTE()
+    flags = wintypes.DWORD()
+    if not user32.GetLayeredWindowAttributes(hwnd, byref(color_key), byref(alpha), byref(flags)):
+        return None
+    if not (flags.value & LWA_ALPHA):
+        return None
+    return int(alpha.value)
+
+
+def capture_window_opacity_state(hwnd):
+    exstyle = get_window_exstyle(hwnd)
+    is_layered = bool(exstyle & WS_EX_LAYERED)
+    return {
+        "exstyle": exstyle,
+        "is_layered": is_layered,
+        "alpha": get_layered_window_alpha(hwnd) if is_layered else 255,
+    }
+
+
+def apply_window_opacity(hwnd, alpha):
+    exstyle = get_window_exstyle(hwnd)
+    if not (exstyle & WS_EX_LAYERED):
+        set_window_exstyle(hwnd, exstyle | WS_EX_LAYERED)
+    return bool(user32.SetLayeredWindowAttributes(hwnd, 0, _clamp_byte(alpha), LWA_ALPHA))
+
+
+def restore_window_opacity(hwnd, state):
+    if not state:
+        return
+
+    exstyle = state.get("exstyle")
+    if exstyle is not None:
+        set_window_exstyle(hwnd, exstyle)
+
+    if state.get("is_layered") and state.get("alpha") is not None:
+        user32.SetLayeredWindowAttributes(hwnd, 0, _clamp_byte(state["alpha"]), LWA_ALPHA)
 
 
 def reset_blur_fade(hwnd):

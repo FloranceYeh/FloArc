@@ -1,29 +1,29 @@
 windows_opacity:
-  enabled: true   # 是否启用窗口透明度
-  focused: -1    # 0 - 255, -1 = skip
-  unfocused: -1    # 0 - 255, -1 = skip
+  enabled: true  # enable focused/unfocused opacity switching
+  focused: 220   # 0 - 255, -1 = skip
+  unfocused: 245 # 0 - 255, -1 = skip
 
-# 毛玻璃效果设置
+# Blur overlay settings
 blur:
   color: "333333"
   opacity: 32    # 0 - 255
-  alpha: 220    # 0 - 255
+  alpha: 220     # 0 - 255
   animate_duration: 500
 
-# 排除规则
+# Exclusion rules
 exclude:
-  # 按窗口类名排除 (系统组件)
+  # Exclude by window class name
   classes:
     - Progman
     - WorkerW
     - Shell_TrayWnd
     - Windows.UI.Core.CoreWindow
     - ConsoleWindowClass
-  # 按窗口标题排除 (包含匹配)
+  # Exclude by window title (substring match)
   titles:
     - "任务管理器"
     - "Task Manager"
-  # 按进程名排除 (支持通配符*, 不区分大小写)
+  # Exclude by executable name (wildcards allowed)
   executables:
     - "Pixpin.exe"
     - "Flow.Launcher.exe"

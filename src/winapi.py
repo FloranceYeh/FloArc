@@ -57,7 +57,7 @@ AW_ACTIVATE = 0x00020000
 AW_BLEND = 0x00080000
 AW_HIDE = 0x00010000
 
-TIMER_ID = 1001
+_BLUR_FADE_STATE = {}
 
 
 def _clamp_byte(value, default=255):
@@ -88,6 +88,50 @@ def apply_acrylic_blur(hwnd, hex_color, blur_opacity, blur_alpha):
     data.SizeOfData = sizeof(accent)
     data.Data = ctypes.cast(byref(accent), POINTER(ACCENT_POLICY))
     user32.SetWindowCompositionAttribute(hwnd, byref(data))
+    set_window_alpha(hwnd, blur_alpha)
+
+
+def set_window_alpha(hwnd, alpha):
+    user32.SetLayeredWindowAttributes(hwnd, 0, _clamp_byte(alpha), LWA_ALPHA)
+
+
+def reset_blur_fade(hwnd):
+    _BLUR_FADE_STATE.pop(hwnd, None)
+
+
+def blur_fade_in(hwnd, target_alpha, duration_ms=200, restart=False):
+    target_alpha = _clamp_byte(target_alpha)
+    duration_ms = max(1, int(duration_ms or 0))
+    now = time.monotonic()
+
+    state = _BLUR_FADE_STATE.get(hwnd)
+    if restart or state is None or state["target_alpha"] != target_alpha or state["duration_ms"] != duration_ms:
+        state = {
+            "started_at": now,
+            "duration_ms": duration_ms,
+            "target_alpha": target_alpha,
+            "current_alpha": 0,
+            "done": False,
+        }
+        _BLUR_FADE_STATE[hwnd] = state
+        set_window_alpha(hwnd, 0)
+        return 0
+
+    if state["done"]:
+        return state["current_alpha"]
+
+    progress = min(1.0, (now - state["started_at"]) * 1000.0 / state["duration_ms"])
+    eased = 1.0 - pow(1.0 - progress, 3.0)
+    alpha = int(round(state["target_alpha"] * eased))
+    if progress >= 1.0:
+        alpha = state["target_alpha"]
+        state["done"] = True
+
+    if alpha != state["current_alpha"]:
+        state["current_alpha"] = alpha
+        set_window_alpha(hwnd, alpha)
+
+    return alpha
 
 
 def get_window_text(hwnd):

@@ -1,14 +1,14 @@
 windows_opacity:
   enabled: true   # 是否启用窗口透明度
-  focused: -1
-  unfocused: -1
+  focused: -1    # 0 - 255, -1 = skip
+  unfocused: -1    # 0 - 255, -1 = skip
 
 # 毛玻璃效果设置
 blur:
   color: "333333"
-  opacity: 64
-  alpha: 255
-  animate_duration: 200
+  opacity: 32    # 0 - 255
+  alpha: 240    # 0 - 255
+  animate_duration: 500
 
 # 排除规则
 exclude:

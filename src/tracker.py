@@ -10,6 +10,7 @@ class BlurTracker:
         self.blur_hwnd = blur_hwnd
         self.current_target_hwnd = None
         self.blur_last_rect = None
+        self.blur_fade_restart = False
 
     def _get_blur_settings(self):
         return self.cfg.get("blur", {})
@@ -71,6 +72,18 @@ class BlurTracker:
         )
 
         self.blur_last_rect = current_rect
+    
+    def _fade_in_blur(self):
+        settings = self._get_blur_settings()
+        target_alpha = settings.get("alpha", 255)
+        duration = settings.get("animate_duration", 200)
+        winapi.blur_fade_in(
+            self.blur_hwnd,
+            target_alpha,
+            duration,
+            restart=self.blur_fade_restart,
+        )
+        self.blur_fade_restart = False
 
     def tick(self):
         fg_hwnd = winapi.user32.GetForegroundWindow()
@@ -78,9 +91,13 @@ class BlurTracker:
         if fg_hwnd != self.current_target_hwnd:
             if self.is_valid_window(fg_hwnd):
                 self.current_target_hwnd = fg_hwnd
+                self.blur_last_rect = None
+                self.blur_fade_restart = True
             else:
                 self.current_target_hwnd = None
                 self.blur_last_rect = None
+                self.blur_fade_restart = False
+                winapi.reset_blur_fade(self.blur_hwnd)
                 winapi.user32.SetWindowPos(
                     self.blur_hwnd,
                     0, 0, 0, 0, 0,
@@ -90,11 +107,13 @@ class BlurTracker:
                     | winapi.SWP_HIDEWINDOW,
                 )
 
+        self._fade_in_blur()
         self._update_blur_position()
         self.root.after(16, self.tick)
 
     def cleanup(self):
         if self.blur_hwnd and winapi.user32.IsWindow(self.blur_hwnd):
+            winapi.reset_blur_fade(self.blur_hwnd)
             winapi.user32.SetWindowPos(
                 self.blur_hwnd,
                 0, 0, 0, 0, 0,

@@ -9,6 +9,7 @@ windows_opacity:
   enabled: true  # enable focused/unfocused opacity switching
   focused: 220   # 0 - 255, -1 = skip
   unfocused: 245 # 0 - 255, -1 = skip
+  transition_duration: 300
 
 # Blur overlay settings
 blur:
@@ -20,16 +21,22 @@ blur:
 # Exclusion rules
 exclude:
   # Exclude by window class name
+  # Common transient UI: taskbar, tray popups, menus, combo dropdowns, tooltips
   classes:
     - Progman
     - WorkerW
     - Shell_TrayWnd
+    - Shell_SecondaryTrayWnd
+    - NotifyIconOverflowWindow
+    - "#32768"
+    - ComboLBox
+    - tooltips_class32
+    - Xaml_WindowedPopupClass
     - Windows.UI.Core.CoreWindow
     - ConsoleWindowClass
   # Exclude by window title (substring match)
   titles:
-    - "任务管理器"
-    - "Task Manager"
+    - "Plain Craft Launcher"
   # Exclude by executable name (wildcards allowed)
   executables:
     - "Pixpin.exe"
@@ -52,6 +59,20 @@ def _merge_dicts(base, override):
     return merged
 
 
+def _merge_default_exclusions(config):
+    exclude = config.setdefault("exclude", {})
+    defaults = DEFAULT_CONFIG.get("exclude", {})
+
+    for key in ("classes", "titles", "executables"):
+        merged = []
+        for item in list(exclude.get(key, []) or []) + list(defaults.get(key, []) or []):
+            if item not in merged:
+                merged.append(item)
+        exclude[key] = merged
+
+    return config
+
+
 def load_config(path):
     if not os.path.exists(path):
         with open(path, "w", encoding="utf-8", newline="\n") as f:
@@ -61,4 +82,4 @@ def load_config(path):
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
-    return _merge_dicts(copy.deepcopy(DEFAULT_CONFIG), data)
+    return _merge_default_exclusions(_merge_dicts(copy.deepcopy(DEFAULT_CONFIG), data))

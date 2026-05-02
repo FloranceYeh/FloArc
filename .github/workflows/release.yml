@@ -29,7 +29,7 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name FloArc main.py
+          pyinstaller --noconfirm --clean FloArc.spec
 
       - name: Package release files
         shell: pwsh

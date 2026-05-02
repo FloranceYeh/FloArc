@@ -8,7 +8,15 @@ from src.config import load_config
 from src.tracker import BlurTracker
 from src.tray import TrayController
 
-CONFIG_FILE = "config.yaml"
+
+def _get_app_dir():
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+APP_DIR = _get_app_dir()
+CONFIG_FILE = os.path.join(APP_DIR, "config.yaml")
 
 
 def _build_restart_command():
@@ -18,10 +26,11 @@ def _build_restart_command():
 
 
 def main():
+    os.chdir(APP_DIR)
     cfg = load_config(CONFIG_FILE)
 
     print("FloArc started...")
-    print(f"Current config: {os.path.abspath(CONFIG_FILE)}")
+    print(f"Current config: {CONFIG_FILE}")
 
     root = tk.Tk()
     root.overrideredirect(True)
@@ -97,7 +106,7 @@ def main():
             pass
 
         if restart_requested:
-            subprocess.Popen(_build_restart_command(), cwd=os.getcwd())
+            subprocess.Popen(_build_restart_command(), cwd=APP_DIR)
 
 
 if __name__ == "__main__":

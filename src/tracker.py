@@ -1,4 +1,5 @@
 import fnmatch
+import time
 
 from . import winapi
 
@@ -13,6 +14,7 @@ class BlurTracker:
         self.blur_fade_restart = False
         self.opacity_initialized = False
         self.modified_window_states = {}
+        self.window_opacity_transitions = {}
 
     def _get_blur_settings(self):
         return self.cfg.get("blur", {})
@@ -33,6 +35,14 @@ class BlurTracker:
         if alpha < 0:
             return None
         return max(0, min(255, alpha))
+
+    def _get_window_opacity_transition_duration(self):
+        settings = self._get_window_opacity_settings()
+        try:
+            duration = int(settings.get("transition_duration", 0))
+        except (TypeError, ValueError):
+            return 0
+        return max(0, duration)
 
     def _window_opacity_enabled(self):
         settings = self._get_window_opacity_settings()
@@ -134,6 +144,116 @@ class BlurTracker:
 
         winapi.apply_window_opacity(hwnd, alpha)
 
+    def _get_current_window_opacity(self, hwnd):
+        if not hwnd or not winapi.user32.IsWindow(hwnd):
+            return None
+
+        alpha = winapi.get_layered_window_alpha(hwnd)
+        if alpha is None:
+            return 255
+        return max(0, min(255, int(alpha)))
+
+    def _get_tracked_window_opacity(self, hwnd):
+        transition = self.window_opacity_transitions.get(hwnd)
+        if transition:
+            return transition.get("current_alpha", transition.get("start_alpha"))
+        return self._get_current_window_opacity(hwnd)
+
+    def _restore_window_opacity_after_transition(self, hwnd):
+        state = self.modified_window_states.pop(hwnd, None)
+        if not state or not hwnd or not winapi.user32.IsWindow(hwnd):
+            return
+
+        winapi.restore_window_opacity(hwnd, state)
+
+    def _schedule_restore_window_opacity(self, hwnd, duration_ms):
+        state = self.modified_window_states.get(hwnd)
+        if not state or not hwnd or not winapi.user32.IsWindow(hwnd):
+            return
+
+        target_alpha = state.get("alpha")
+        if target_alpha is None:
+            target_alpha = 255
+
+        self._schedule_window_opacity_transition(hwnd, target_alpha, duration_ms, restore_after=True)
+
+    def _schedule_window_opacity_transition(self, hwnd, alpha, duration_ms, restore_after=False):
+        if alpha is None or not hwnd or not winapi.user32.IsWindow(hwnd):
+            return
+        if self.should_exclude_window(hwnd):
+            return
+        if not self._remember_window_state(hwnd):
+            return
+
+        target_alpha = max(0, min(255, int(alpha)))
+        if restore_after:
+            state = self.modified_window_states.get(hwnd)
+            if state and state.get("alpha") is not None:
+                target_alpha = max(0, min(255, int(state["alpha"])))
+            else:
+                target_alpha = 255
+
+        duration_ms = max(0, int(duration_ms or 0))
+        current_alpha = self._get_tracked_window_opacity(hwnd)
+        if current_alpha is None:
+            return
+
+        existing = self.window_opacity_transitions.get(hwnd)
+        if (
+            existing
+            and existing.get("target_alpha") == target_alpha
+            and bool(existing.get("restore_after")) == bool(restore_after)
+        ):
+            return
+
+        self.window_opacity_transitions.pop(hwnd, None)
+
+        if duration_ms <= 0 or current_alpha == target_alpha:
+            if restore_after:
+                self._restore_window_opacity_after_transition(hwnd)
+            else:
+                winapi.apply_window_opacity(hwnd, target_alpha)
+            return
+
+        self.window_opacity_transitions[hwnd] = {
+            "start_alpha": current_alpha,
+            "target_alpha": target_alpha,
+            "started_at": time.monotonic(),
+            "duration_ms": duration_ms,
+            "restore_after": restore_after,
+            "current_alpha": current_alpha,
+        }
+
+    def _update_window_opacity_transitions(self):
+        if not self.window_opacity_transitions:
+            return
+
+        now = time.monotonic()
+        for hwnd, transition in list(self.window_opacity_transitions.items()):
+            if not hwnd or not winapi.user32.IsWindow(hwnd):
+                self.window_opacity_transitions.pop(hwnd, None)
+                continue
+
+            duration_ms = max(1, int(transition.get("duration_ms", 1)))
+            progress = min(1.0, (now - transition["started_at"]) * 1000.0 / duration_ms)
+            eased = 1.0 - pow(1.0 - progress, 3.0)
+            alpha = int(
+                round(
+                    transition["start_alpha"]
+                    + (transition["target_alpha"] - transition["start_alpha"]) * eased
+                )
+            )
+            alpha = max(0, min(255, alpha))
+
+            if alpha != transition.get("current_alpha"):
+                winapi.apply_window_opacity(hwnd, alpha)
+                transition["current_alpha"] = alpha
+
+            if progress >= 1.0:
+                if transition.get("restore_after"):
+                    self._restore_window_opacity_after_transition(hwnd)
+                self.window_opacity_transitions.pop(hwnd, None)
+
     def _restore_window_opacity(self, hwnd):
         state = self.modified_window_states.pop(hwnd, None)
         if not state or not hwnd or not winapi.user32.IsWindow(hwnd):
@@ -156,15 +276,22 @@ class BlurTracker:
         if self.opacity_initialized or not self._window_opacity_enabled():
             return
 
+        duration = self._get_window_opacity_transition_duration()
         focused_alpha = self._get_configured_window_opacity("focused")
         unfocused_alpha = self._get_configured_window_opacity("unfocused")
 
         for hwnd in self._iter_valid_windows():
             if hwnd == focused_hwnd:
                 if focused_alpha is not None:
-                    self._apply_window_opacity(hwnd, focused_alpha)
+                    if duration > 0:
+                        self._schedule_window_opacity_transition(hwnd, focused_alpha, duration)
+                    else:
+                        self._apply_window_opacity(hwnd, focused_alpha)
             elif unfocused_alpha is not None:
-                self._apply_window_opacity(hwnd, unfocused_alpha)
+                if duration > 0:
+                    self._schedule_window_opacity_transition(hwnd, unfocused_alpha, duration)
+                else:
+                    self._apply_window_opacity(hwnd, unfocused_alpha)
 
         self.opacity_initialized = True
 
@@ -175,20 +302,21 @@ class BlurTracker:
         if not self.opacity_initialized:
             self._sync_initial_window_opacity(current_hwnd)
 
+        duration = self._get_window_opacity_transition_duration()
         focused_alpha = self._get_configured_window_opacity("focused")
         unfocused_alpha = self._get_configured_window_opacity("unfocused")
 
         if previous_hwnd and previous_hwnd != current_hwnd:
             if unfocused_alpha is None:
-                self._restore_window_opacity(previous_hwnd)
+                self._schedule_restore_window_opacity(previous_hwnd, duration)
             elif not self.should_exclude_window(previous_hwnd):
-                self._apply_window_opacity(previous_hwnd, unfocused_alpha)
+                self._schedule_window_opacity_transition(previous_hwnd, unfocused_alpha, duration)
 
         if current_hwnd:
             if focused_alpha is None:
-                self._restore_window_opacity(current_hwnd)
+                self._schedule_restore_window_opacity(current_hwnd, duration)
             else:
-                self._apply_window_opacity(current_hwnd, focused_alpha)
+                self._schedule_window_opacity_transition(current_hwnd, focused_alpha, duration)
 
     def tick(self):
         fg_hwnd = winapi.user32.GetForegroundWindow()
@@ -219,11 +347,13 @@ class BlurTracker:
 
             self._update_window_opacity(previous_target_hwnd, self.current_target_hwnd)
 
+        self._update_window_opacity_transitions()
         self._fade_in_blur()
         self._update_blur_position()
         self.root.after(16, self.tick)
 
     def cleanup(self):
+        self.window_opacity_transitions.clear()
         for hwnd in list(self.modified_window_states):
             self._restore_window_opacity(hwnd)
 

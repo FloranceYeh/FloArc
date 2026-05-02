@@ -3,7 +3,6 @@ import subprocess
 import sys
 import tkinter as tk
 
-from src import winapi
 from src.config import load_config
 from src.tracker import BlurTracker
 from src.tray import TrayController
@@ -37,28 +36,7 @@ def main():
     root.config(bg="black")
     root.withdraw()
 
-    root.update_idletasks()
-    blur_hwnd = int(root.wm_frame(), 16)
-
-    style = winapi.user32.GetWindowLongW(blur_hwnd, winapi.GWL_EXSTYLE)
-    winapi.user32.SetWindowLongW(
-        blur_hwnd,
-        winapi.GWL_EXSTYLE,
-        style
-        | winapi.WS_EX_LAYERED
-        | winapi.WS_EX_TRANSPARENT
-        | winapi.WS_EX_NOACTIVATE
-        | winapi.WS_EX_TOOLWINDOW,
-    )
-
-    winapi.apply_acrylic_blur(
-        blur_hwnd,
-        cfg["blur"]["color"],
-        cfg["blur"]["opacity"],
-        cfg["blur"]["alpha"],
-    )
-
-    tracker = BlurTracker(cfg, root, blur_hwnd)
+    tracker = BlurTracker(cfg, root)
     tracker.tick()
 
     tray = TrayController("FloArc")

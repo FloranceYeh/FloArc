@@ -1,12 +1,13 @@
 # FloArc
 
-FloArc is a lightweight Windows utility that generates a following Acrylic blur overlay for the currently active foreground window and dynamically adjusts window opacity based on its focus state.
+FloArc is a lightweight Windows utility that generates Acrylic blur overlays for all valid top-level windows and dynamically adjusts window opacity based on its focus state.
 
 [Chinese README](README_zh-cn.md)
 
 ## Features
 
-- Tracks the position and size of the client area of the current foreground window.
+- Tracks the position and size of the client area of each valid top-level window.
+- Keeps Acrylic blur overlays on both focused and unfocused windows.
 - Sets separate opacity levels for focused and unfocused windows.
 - Configurable transition durations for opacity changes between focus states.
 - Automatically excludes temporary windows by default (e.g., Desktop, Taskbar, System Tray popups, Menus, Dropdowns, Tooltips).
@@ -89,7 +90,7 @@ exclude:
 - `exclude.executables`: Exclude processes by executable name (wildcards supported, case-insensitive).
 
 **Notes:**
-- If both `focused` and `unfocused` are set to `-1`, FloArc will only display the blur overlay without modifying window opacity.
+- If both `focused` and `unfocused` are set to `-1`, FloArc will only display the blur overlays without modifying window opacity.
 - Default exclusion items are merged at runtime; manual addition of common system windows (Taskbar, Tray, Menus, etc.) is not required.
 - Exclusion rules only affect window selection and opacity management; they do not modify the excluded windows themselves.
 

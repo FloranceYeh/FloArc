@@ -1,20 +1,20 @@
 import fnmatch
 import time
+import tkinter as tk
 
 from . import winapi
 
 
 class BlurTracker:
-    def __init__(self, cfg, root, blur_hwnd):
+    def __init__(self, cfg, root):
         self.cfg = cfg
         self.root = root
-        self.blur_hwnd = blur_hwnd
         self.current_target_hwnd = None
-        self.blur_last_rect = None
-        self.blur_fade_restart = False
         self.opacity_initialized = False
         self.modified_window_states = {}
         self.window_opacity_transitions = {}
+        self.blur_overlays = {}
+        self.blur_hwnds = set()
 
     def _get_blur_settings(self):
         return self.cfg.get("blur", {})
@@ -53,7 +53,7 @@ class BlurTracker:
         )
 
     def should_exclude_window(self, hwnd):
-        if not hwnd or hwnd == self.blur_hwnd:
+        if not hwnd or hwnd in self.blur_hwnds:
             return True
 
         class_name = winapi.get_window_class_name(hwnd)
@@ -84,23 +84,89 @@ class BlurTracker:
     def _get_target_rect(self, hwnd):
         return winapi.get_window_rect(hwnd, "client")
 
-    def _update_blur_position(self):
-        if not self.current_target_hwnd or not winapi.user32.IsWindow(self.current_target_hwnd):
+    def _create_blur_overlay(self, target_hwnd):
+        window = tk.Toplevel(self.root)
+        window.overrideredirect(True)
+        window.config(bg="black")
+        window.withdraw()
+        window.update_idletasks()
+
+        blur_hwnd = int(window.wm_frame(), 16)
+        style = winapi.user32.GetWindowLongW(blur_hwnd, winapi.GWL_EXSTYLE)
+        winapi.user32.SetWindowLongW(
+            blur_hwnd,
+            winapi.GWL_EXSTYLE,
+            style
+            | winapi.WS_EX_LAYERED
+            | winapi.WS_EX_TRANSPARENT
+            | winapi.WS_EX_NOACTIVATE
+            | winapi.WS_EX_TOOLWINDOW,
+        )
+
+        settings = self._get_blur_settings()
+        winapi.reset_blur_fade(blur_hwnd)
+        winapi.apply_acrylic_blur(
+            blur_hwnd,
+            settings.get("color", "333333"),
+            settings.get("opacity", 32),
+            settings.get("alpha", 220),
+        )
+
+        overlay = {
+            "window": window,
+            "hwnd": blur_hwnd,
+            "last_rect": None,
+            "fade_restart": True,
+        }
+        self.blur_hwnds.add(blur_hwnd)
+        self.blur_overlays[target_hwnd] = overlay
+        return overlay
+
+    def _destroy_blur_overlay(self, target_hwnd):
+        overlay = self.blur_overlays.pop(target_hwnd, None)
+        if not overlay:
             return
 
-        rect = self._get_target_rect(self.current_target_hwnd)
+        blur_hwnd = overlay.get("hwnd")
+        if blur_hwnd:
+            self.blur_hwnds.discard(blur_hwnd)
+            winapi.reset_blur_fade(blur_hwnd)
+
+        window = overlay.get("window")
+        if window:
+            try:
+                if window.winfo_exists():
+                    window.destroy()
+            except tk.TclError:
+                pass
+
+    def _ensure_blur_overlay(self, target_hwnd):
+        overlay = self.blur_overlays.get(target_hwnd)
+        if overlay and winapi.user32.IsWindow(overlay["hwnd"]):
+            return overlay
+
+        if overlay:
+            self._destroy_blur_overlay(target_hwnd)
+
+        return self._create_blur_overlay(target_hwnd)
+
+    def _update_blur_overlay_position(self, target_hwnd, overlay):
+        if not target_hwnd or not winapi.user32.IsWindow(target_hwnd):
+            return
+
+        rect = self._get_target_rect(target_hwnd)
         w = rect.right - rect.left
         h = rect.bottom - rect.top
         if w <= 0 or h <= 0:
             return
 
         current_rect = (rect.left, rect.top, w, h)
-        if current_rect == self.blur_last_rect:
+        if current_rect == overlay["last_rect"]:
             return
 
         winapi.user32.SetWindowPos(
-            self.blur_hwnd,
-            self.current_target_hwnd,
+            overlay["hwnd"],
+            target_hwnd,
             rect.left,
             rect.top,
             w,
@@ -108,19 +174,32 @@ class BlurTracker:
             winapi.SWP_NOACTIVATE | winapi.SWP_SHOWWINDOW,
         )
 
-        self.blur_last_rect = current_rect
+        overlay["last_rect"] = current_rect
 
-    def _fade_in_blur(self):
+    def _fade_in_blur(self, overlay):
         settings = self._get_blur_settings()
         target_alpha = settings.get("alpha", 255)
         duration = settings.get("animate_duration", 200)
         winapi.blur_fade_in(
-            self.blur_hwnd,
+            overlay["hwnd"],
             target_alpha,
             duration,
-            restart=self.blur_fade_restart,
+            restart=overlay["fade_restart"],
         )
-        self.blur_fade_restart = False
+        overlay["fade_restart"] = False
+
+    def _sync_blur_overlays(self):
+        valid_windows = self._iter_valid_windows()
+        valid_window_set = set(valid_windows)
+
+        for hwnd in list(self.blur_overlays):
+            if hwnd not in valid_window_set or not winapi.user32.IsWindow(hwnd):
+                self._destroy_blur_overlay(hwnd)
+
+        for hwnd in valid_windows:
+            overlay = self._ensure_blur_overlay(hwnd)
+            self._update_blur_overlay_position(hwnd, overlay)
+            self._fade_in_blur(overlay)
 
     def _remember_window_state(self, hwnd):
         if hwnd in self.modified_window_states:
@@ -328,43 +407,20 @@ class BlurTracker:
         if next_target_hwnd != self.current_target_hwnd:
             previous_target_hwnd = self.current_target_hwnd
 
-            if next_target_hwnd:
-                self.current_target_hwnd = next_target_hwnd
-                self.blur_last_rect = None
-                self.blur_fade_restart = True
-            else:
-                self.current_target_hwnd = None
-                self.blur_last_rect = None
-                self.blur_fade_restart = False
-                winapi.reset_blur_fade(self.blur_hwnd)
-                winapi.user32.SetWindowPos(
-                    self.blur_hwnd,
-                    0, 0, 0, 0, 0,
-                    winapi.SWP_NOMOVE
-                    | winapi.SWP_NOSIZE
-                    | winapi.SWP_NOACTIVATE
-                    | winapi.SWP_HIDEWINDOW,
-                )
+            self.current_target_hwnd = next_target_hwnd
 
             self._update_window_opacity(previous_target_hwnd, self.current_target_hwnd)
 
         self._update_window_opacity_transitions()
-        self._fade_in_blur()
-        self._update_blur_position()
+        self._sync_blur_overlays()
         self.root.after(16, self.tick)
 
     def cleanup(self):
         self.window_opacity_transitions.clear()
+        for hwnd in list(self.blur_overlays):
+            self._destroy_blur_overlay(hwnd)
+
         for hwnd in list(self.modified_window_states):
             self._restore_window_opacity(hwnd)
 
-        if self.blur_hwnd and winapi.user32.IsWindow(self.blur_hwnd):
-            winapi.reset_blur_fade(self.blur_hwnd)
-            winapi.user32.SetWindowPos(
-                self.blur_hwnd,
-                0, 0, 0, 0, 0,
-                winapi.SWP_NOMOVE
-                | winapi.SWP_NOSIZE
-                | winapi.SWP_NOACTIVATE
-                | winapi.SWP_HIDEWINDOW,
-            )
+        self.blur_hwnds.clear()

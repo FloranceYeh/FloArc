@@ -2,6 +2,8 @@
 
 FloArc is a lightweight Windows utility that generates a following Acrylic blur overlay for the currently active foreground window and dynamically adjusts window opacity based on its focus state.
 
+[Chinese README](README_zh-cn.md)
+
 ## Features
 
 - Tracks the position and size of the client area of the current foreground window.

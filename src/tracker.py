@@ -24,9 +24,6 @@ class BlurTracker:
 
     def _get_configured_window_opacity(self, key):
         settings = self._get_window_opacity_settings()
-        if not settings.get("enabled", False):
-            return None
-
         try:
             alpha = int(settings.get(key, -1))
         except (TypeError, ValueError):
@@ -36,18 +33,20 @@ class BlurTracker:
             return None
         return max(0, min(255, alpha))
 
-    def _get_window_opacity_transition_duration(self):
+    def _get_window_opacity_transition_duration(self, key):
         settings = self._get_window_opacity_settings()
         try:
-            duration = int(settings.get("transition_duration", 0))
+            transition_duration = settings.get("transition_duration", 0)
+            if isinstance(transition_duration, dict):
+                duration = transition_duration.get(key, transition_duration.get("default", 0))
+            else:
+                duration = transition_duration
+            duration = int(duration)
         except (TypeError, ValueError):
             return 0
         return max(0, duration)
 
     def _window_opacity_enabled(self):
-        settings = self._get_window_opacity_settings()
-        if not settings.get("enabled", False):
-            return False
         return (
             self._get_configured_window_opacity("focused") is not None
             or self._get_configured_window_opacity("unfocused") is not None
@@ -276,20 +275,21 @@ class BlurTracker:
         if self.opacity_initialized or not self._window_opacity_enabled():
             return
 
-        duration = self._get_window_opacity_transition_duration()
+        focus_duration = self._get_window_opacity_transition_duration("focus")
+        unfocus_duration = self._get_window_opacity_transition_duration("unfocus")
         focused_alpha = self._get_configured_window_opacity("focused")
         unfocused_alpha = self._get_configured_window_opacity("unfocused")
 
         for hwnd in self._iter_valid_windows():
             if hwnd == focused_hwnd:
                 if focused_alpha is not None:
-                    if duration > 0:
-                        self._schedule_window_opacity_transition(hwnd, focused_alpha, duration)
+                    if focus_duration > 0:
+                        self._schedule_window_opacity_transition(hwnd, focused_alpha, focus_duration)
                     else:
                         self._apply_window_opacity(hwnd, focused_alpha)
             elif unfocused_alpha is not None:
-                if duration > 0:
-                    self._schedule_window_opacity_transition(hwnd, unfocused_alpha, duration)
+                if unfocus_duration > 0:
+                    self._schedule_window_opacity_transition(hwnd, unfocused_alpha, unfocus_duration)
                 else:
                     self._apply_window_opacity(hwnd, unfocused_alpha)
 
@@ -302,21 +302,22 @@ class BlurTracker:
         if not self.opacity_initialized:
             self._sync_initial_window_opacity(current_hwnd)
 
-        duration = self._get_window_opacity_transition_duration()
+        focus_duration = self._get_window_opacity_transition_duration("focus")
+        unfocus_duration = self._get_window_opacity_transition_duration("unfocus")
         focused_alpha = self._get_configured_window_opacity("focused")
         unfocused_alpha = self._get_configured_window_opacity("unfocused")
 
         if previous_hwnd and previous_hwnd != current_hwnd:
             if unfocused_alpha is None:
-                self._schedule_restore_window_opacity(previous_hwnd, duration)
+                self._schedule_restore_window_opacity(previous_hwnd, unfocus_duration)
             elif not self.should_exclude_window(previous_hwnd):
-                self._schedule_window_opacity_transition(previous_hwnd, unfocused_alpha, duration)
+                self._schedule_window_opacity_transition(previous_hwnd, unfocused_alpha, unfocus_duration)
 
         if current_hwnd:
             if focused_alpha is None:
-                self._schedule_restore_window_opacity(current_hwnd, duration)
+                self._schedule_restore_window_opacity(current_hwnd, focus_duration)
             else:
-                self._schedule_window_opacity_transition(current_hwnd, focused_alpha, duration)
+                self._schedule_window_opacity_transition(current_hwnd, focused_alpha, focus_duration)
 
     def tick(self):
         fg_hwnd = winapi.user32.GetForegroundWindow()

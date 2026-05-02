@@ -6,10 +6,11 @@ import yaml
 
 DEFAULT_CONFIG_TEMPLATE = textwrap.dedent("""\
 windows_opacity:
-  enabled: true  # enable focused/unfocused opacity switching
-  focused: 220   # 0 - 255, -1 = skip
-  unfocused: 245 # 0 - 255, -1 = skip
-  transition_duration: 300
+  focused: 200   # 0 - 255, -1 = disable
+  unfocused: 220 # 0 - 255, -1 = disable
+  transition_duration:
+    focus: 500    # milliseconds, -1 = instant
+    unfocus: 500  # milliseconds, -1 = instant
 
 # Blur overlay settings
 blur:
@@ -73,6 +74,13 @@ def _merge_default_exclusions(config):
     return config
 
 
+def _normalize_config(config):
+    windows_opacity = config.get("windows_opacity")
+    if isinstance(windows_opacity, dict):
+        windows_opacity.pop("enabled", None)
+    return config
+
+
 def load_config(path):
     if not os.path.exists(path):
         with open(path, "w", encoding="utf-8", newline="\n") as f:
@@ -82,4 +90,6 @@ def load_config(path):
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
-    return _merge_default_exclusions(_merge_dicts(copy.deepcopy(DEFAULT_CONFIG), data))
+    return _normalize_config(
+        _merge_default_exclusions(_merge_dicts(copy.deepcopy(DEFAULT_CONFIG), data))
+    )

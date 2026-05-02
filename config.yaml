@@ -1,8 +1,9 @@
 windows_opacity:
-  enabled: true  # enable focused/unfocused opacity switching
-  focused: 220   # 0 - 255, -1 = skip
-  unfocused: 245 # 0 - 255, -1 = skip
-  transition_duration: 300
+  focused: 210   # 0 - 255, -1 = disable
+  unfocused: 220 # 0 - 255, -1 = disable
+  transition_duration:
+    focus: 500    # milliseconds, -1 = instant
+    unfocus: 500  # milliseconds, -1 = instant
 
 # Blur overlay settings
 blur:

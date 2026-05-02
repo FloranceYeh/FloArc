@@ -5,6 +5,8 @@ from . import winapi
 
 
 class BlurTracker:
+    WINDOW_STATE_CACHE_TTL = 0.2
+
     def __init__(self, cfg, root, blur_hwnd):
         self.cfg = cfg
         self.root = root
@@ -15,12 +17,74 @@ class BlurTracker:
         self.opacity_initialized = False
         self.modified_window_states = {}
         self.window_opacity_transitions = {}
+        self.window_state_cache = {}
+        self.blur_settings = cfg.get("blur", {})
+        self.window_opacity_settings = cfg.get("windows_opacity", {})
+        exclude_settings = cfg.get("exclude", {})
+        self.exclude_classes = frozenset(exclude_settings.get("classes", []))
+        self.exclude_titles = tuple(exclude_settings.get("titles", []))
+        self.exclude_executables = tuple(
+            pattern.lower() for pattern in exclude_settings.get("executables", [])
+        )
 
     def _get_blur_settings(self):
-        return self.cfg.get("blur", {})
+        return self.blur_settings
 
     def _get_window_opacity_settings(self):
-        return self.cfg.get("windows_opacity", {})
+        return self.window_opacity_settings
+
+    def _get_window_state(self, hwnd):
+        if not hwnd or hwnd == self.blur_hwnd:
+            return None
+
+        now = time.monotonic()
+        cached = self.window_state_cache.get(hwnd)
+        if cached:
+            if now - cached["checked_at"] <= self.WINDOW_STATE_CACHE_TTL and winapi.user32.IsWindow(hwnd):
+                return cached
+            self.window_state_cache.pop(hwnd, None)
+
+        if not winapi.user32.IsWindow(hwnd):
+            return None
+
+        class_name = winapi.get_window_class_name(hwnd)
+        excluded = class_name in self.exclude_classes
+        title = ""
+        exe_name = None
+
+        if not excluded:
+            title = winapi.get_window_text(hwnd)
+            for excluded_title in self.exclude_titles:
+                if excluded_title in title:
+                    excluded = True
+                    break
+
+        if not excluded:
+            exe_name = winapi.get_window_exe_name(hwnd)
+            if exe_name:
+                for excluded_exe in self.exclude_executables:
+                    if fnmatch.fnmatchcase(exe_name, excluded_exe):
+                        excluded = True
+                        break
+
+        state = {
+            "checked_at": now,
+            "class_name": class_name,
+            "title": title,
+            "exe_name": exe_name,
+            "excluded": excluded,
+            "visible": winapi.is_window_visible(hwnd),
+            "iconic": winapi.is_window_iconic(hwnd),
+            "cloaked": winapi.is_window_cloaked(hwnd),
+        }
+        state["valid"] = (
+            not state["excluded"]
+            and state["visible"]
+            and not state["iconic"]
+            and not state["cloaked"]
+        )
+        self.window_state_cache[hwnd] = state
+        return state
 
     def _get_configured_window_opacity(self, key):
         settings = self._get_window_opacity_settings()
@@ -53,33 +117,12 @@ class BlurTracker:
         )
 
     def should_exclude_window(self, hwnd):
-        if not hwnd or hwnd == self.blur_hwnd:
-            return True
-
-        class_name = winapi.get_window_class_name(hwnd)
-        if class_name in self.cfg.get("exclude", {}).get("classes", []):
-            return True
-
-        title = winapi.get_window_text(hwnd)
-        for excluded_title in self.cfg.get("exclude", {}).get("titles", []):
-            if excluded_title in title:
-                return True
-
-        exe_name = winapi.get_window_exe_name(hwnd)
-        for excluded_exe in self.cfg.get("exclude", {}).get("executables", []):
-            if exe_name and fnmatch.fnmatch(exe_name, excluded_exe.lower()):
-                return True
-
-        return False
+        state = self._get_window_state(hwnd)
+        return True if state is None else state["excluded"]
 
     def is_valid_window(self, hwnd):
-        if self.should_exclude_window(hwnd):
-            return False
-        if winapi.is_window_iconic(hwnd) or not winapi.is_window_visible(hwnd):
-            return False
-        if winapi.is_window_cloaked(hwnd):
-            return False
-        return True
+        state = self._get_window_state(hwnd)
+        return bool(state and state["valid"])
 
     def _get_target_rect(self, hwnd):
         return winapi.get_window_rect(hwnd, "client")
@@ -349,9 +392,11 @@ class BlurTracker:
             self._update_window_opacity(previous_target_hwnd, self.current_target_hwnd)
 
         self._update_window_opacity_transitions()
-        self._fade_in_blur()
-        self._update_blur_position()
-        self.root.after(16, self.tick)
+        if self.current_target_hwnd:
+            self._fade_in_blur()
+            self._update_blur_position()
+        next_delay = 16 if (self.current_target_hwnd or self.window_opacity_transitions) else 50
+        self.root.after(next_delay, self.tick)
 
     def cleanup(self):
         self.window_opacity_transitions.clear()

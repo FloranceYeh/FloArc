@@ -102,6 +102,7 @@ class BlurTracker:
             | winapi.WS_EX_NOACTIVATE
             | winapi.WS_EX_TOOLWINDOW,
         )
+        winapi.set_window_owner(blur_hwnd, target_hwnd)
 
         settings = self._get_blur_settings()
         winapi.reset_blur_fade(blur_hwnd)

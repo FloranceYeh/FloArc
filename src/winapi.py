@@ -31,6 +31,7 @@ class POINT(Structure):
 
 
 GWL_EXSTYLE = -20
+GWLP_HWNDPARENT = -8
 WS_EX_LAYERED = 0x00080000
 WS_EX_TRANSPARENT = 0x00000020
 WS_EX_NOACTIVATE = 0x08000000
@@ -98,6 +99,13 @@ def get_window_exstyle(hwnd):
 
 def set_window_exstyle(hwnd, exstyle):
     user32.SetWindowLongW(hwnd, GWL_EXSTYLE, exstyle)
+
+
+def set_window_owner(hwnd, owner_hwnd):
+    try:
+        user32.SetWindowLongPtrW(hwnd, GWLP_HWNDPARENT, owner_hwnd)
+    except AttributeError:
+        user32.SetWindowLongW(hwnd, GWLP_HWNDPARENT, owner_hwnd)
 
 
 def set_window_alpha(hwnd, alpha):

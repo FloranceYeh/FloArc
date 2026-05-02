@@ -37,7 +37,7 @@ exclude:
     - ConsoleWindowClass
   # Exclude by window title (substring match)
   titles:
-    - "Plain Craft Launcher"
+    - "Windhawk"
   # Exclude by executable name (wildcards allowed)
   executables:
     - "Pixpin.exe"

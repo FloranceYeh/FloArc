@@ -10,7 +10,7 @@ FloArc is a lightweight Windows utility that generates a following Acrylic blur 
 - Sets separate opacity levels for focused and unfocused windows.
 - Configurable transition durations for opacity changes between focus states.
 - Automatically excludes temporary windows by default (e.g., Desktop, Taskbar, System Tray popups, Menus, Dropdowns, Tooltips).
-- Runs quietly in the System Tray with `Restart` and `Close` options.
+- Runs quietly in the System Tray with `Open Config Folder`, `Pause`, `Restart` and `Close` options.
 
 ## Requirements
 
@@ -122,7 +122,9 @@ exclude:
 
 The application runs in the System Tray upon launch.
 
-- Right-click the tray icon to access `Restart` and `Close`.
+- Right-click the tray icon to access `Open Config Folder`, `Pause`,  `Restart`, `Close`.
+- `Open Config Folder` opens the directory containing `config.yaml` in File Explorer.
+- `Pause` temporarily stops FloArc.
 - `Restart` relaunches the app with current parameters and reloads `config.yaml`.
 - `Close` stops tracking, restores original opacity for managed windows, and exits the program.
 

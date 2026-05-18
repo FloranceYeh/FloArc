@@ -64,6 +64,7 @@ def main():
     tray = TrayController("FloArc")
     shutdown_requested = False
     restart_requested = False
+    paused = False
 
     def request_shutdown(restart=False):
         nonlocal shutdown_requested, restart_requested
@@ -77,10 +78,22 @@ def main():
             pass
 
     def poll_tray_actions():
+        nonlocal paused
         if shutdown_requested:
             return
 
         for action in tray.drain_actions():
+            if action == "open_config":
+                try:
+                    os.startfile(APP_DIR)
+                except OSError:
+                    pass
+                continue
+            if action == "toggle_pause":
+                paused = not paused
+                tracker.set_paused(paused)
+                tray.set_paused(paused)
+                continue
             if action == "restart":
                 request_shutdown(restart=True)
                 return

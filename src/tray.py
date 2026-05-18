@@ -40,6 +40,8 @@ IDI_APPLICATION = 32512
 
 ID_TRAY_RESTART = 1001
 ID_TRAY_CLOSE = 1002
+ID_TRAY_OPEN_CONFIG = 1003
+ID_TRAY_TOGGLE_PAUSE = 1004
 
 
 class POINT(Structure):
@@ -193,6 +195,7 @@ class TrayController:
         self._wndproc = None
         self._class_name = f"FloArcTray_{id(self):x}"
         self._error = None
+        self._paused = False
 
     def start(self):
         if self._thread is not None:
@@ -223,6 +226,9 @@ class TrayController:
             except queue.Empty:
                 break
         return actions
+
+    def set_paused(self, paused):
+        self._paused = bool(paused)
 
     def _run(self):
         try:
@@ -303,6 +309,9 @@ class TrayController:
             return
 
         try:
+            user32.AppendMenuW(menu, MF_STRING, ID_TRAY_OPEN_CONFIG, "Open Config Folder")
+            pause_label = "Resume" if self._paused else "Pause"
+            user32.AppendMenuW(menu, MF_STRING, ID_TRAY_TOGGLE_PAUSE, pause_label)
             user32.AppendMenuW(menu, MF_STRING, ID_TRAY_RESTART, "Restart")
             user32.AppendMenuW(menu, MF_STRING, ID_TRAY_CLOSE, "Close")
 
@@ -318,7 +327,11 @@ class TrayController:
                 hwnd,
                 None,
             )
-            if command == ID_TRAY_RESTART:
+            if command == ID_TRAY_OPEN_CONFIG:
+                self._actions.put("open_config")
+            elif command == ID_TRAY_TOGGLE_PAUSE:
+                self._actions.put("toggle_pause")
+            elif command == ID_TRAY_RESTART:
                 self._actions.put("restart")
             elif command == ID_TRAY_CLOSE:
                 self._actions.put("close")

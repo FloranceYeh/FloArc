@@ -15,6 +15,7 @@ class BlurTracker:
         self.blur_last_rect = None
         self.blur_fade_restart = False
         self.opacity_initialized = False
+        self.paused = False
         self.modified_window_states = {}
         self.window_opacity_transitions = {}
         self.window_state_cache = {}
@@ -303,6 +304,35 @@ class BlurTracker:
 
         winapi.restore_window_opacity(hwnd, state)
 
+    def _restore_all_window_opacity(self):
+        for hwnd in list(self.modified_window_states.keys()):
+            self._restore_window_opacity(hwnd)
+
+    def set_paused(self, paused):
+        paused = bool(paused)
+        if self.paused == paused:
+            return
+
+        self.paused = paused
+        if paused:
+            self._restore_all_window_opacity()
+            self.window_opacity_transitions.clear()
+            self.opacity_initialized = False
+            self.current_target_hwnd = None
+            self.blur_last_rect = None
+            self.blur_fade_restart = False
+            winapi.reset_blur_fade(self.blur_hwnd)
+            winapi.user32.SetWindowPos(
+                self.blur_hwnd,
+                0, 0, 0, 0, 0,
+                winapi.SWP_NOMOVE
+                | winapi.SWP_NOSIZE
+                | winapi.SWP_NOACTIVATE
+                | winapi.SWP_HIDEWINDOW,
+            )
+        else:
+            self.opacity_initialized = False
+
     def _iter_valid_windows(self):
         windows = []
 
@@ -363,6 +393,10 @@ class BlurTracker:
                 self._schedule_window_opacity_transition(current_hwnd, focused_alpha, focus_duration)
 
     def tick(self):
+        if self.paused:
+            self.root.after(200, self.tick)
+            return
+
         fg_hwnd = winapi.user32.GetForegroundWindow()
         next_target_hwnd = fg_hwnd if self.is_valid_window(fg_hwnd) else None
 

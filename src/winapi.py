@@ -58,6 +58,9 @@ AW_ACTIVATE = 0x00020000
 AW_BLEND = 0x00080000
 AW_HIDE = 0x00010000
 
+user32.SetWindowCompositionAttribute.argtypes = [wintypes.HWND, ctypes.c_void_p]
+user32.SetWindowCompositionAttribute.restype = wintypes.BOOL
+
 _BLUR_FADE_STATE = {}
 
 

@@ -48,12 +48,6 @@ SWP_HIDEWINDOW = 0x0080
 
 DWMWA_EXTENDED_FRAME_BOUNDS = 9
 DWMWA_CLOAKED = 14
-DWMWA_WINDOW_CORNER_PREFERENCE = 33
-
-DWMWCP_DEFAULT = 0
-DWMWCP_DONOTROUND = 1
-DWMWCP_ROUND = 2
-
 AW_ACTIVATE = 0x00020000
 AW_BLEND = 0x00080000
 AW_HIDE = 0x00010000
@@ -266,28 +260,6 @@ def get_window_rect(hwnd, mode):
     if mode == "extended":
         return get_window_rect_extended(hwnd)
     return get_window_rect_fallback(hwnd)
-
-
-def apply_rounding(hwnd, width, height, radius, mode):
-    if str(mode).lower() == "dwm":
-        preference = DWMWCP_ROUND if radius > 0 else DWMWCP_DONOTROUND
-        value = ctypes.c_int(preference)
-        dwmapi.DwmSetWindowAttribute(
-            hwnd,
-            DWMWA_WINDOW_CORNER_PREFERENCE,
-            byref(value),
-            sizeof(value),
-        )
-        return
-
-    if radius <= 0:
-        user32.SetWindowRgn(hwnd, 0, True)
-        return
-
-    ellipse = max(2, radius * 2)
-    region = gdi32.CreateRoundRectRgn(0, 0, width + 1, height + 1, ellipse, ellipse)
-    if region:
-        user32.SetWindowRgn(hwnd, region, True)
 
 
 def enum_windows(callback):

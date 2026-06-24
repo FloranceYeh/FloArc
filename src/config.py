@@ -87,8 +87,11 @@ def load_config(path):
             f.write(DEFAULT_CONFIG_TEMPLATE)
         return copy.deepcopy(DEFAULT_CONFIG)
 
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except (yaml.YAMLError, OSError):
+        return copy.deepcopy(DEFAULT_CONFIG)
 
     return _normalize_config(
         _merge_default_exclusions(_merge_dicts(copy.deepcopy(DEFAULT_CONFIG), data))

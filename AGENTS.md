@@ -26,7 +26,7 @@ First run auto-generates `config.yaml` next to the script. No other setup needed
 - **`main.py`** — entrypoint. Creates hidden `tk.Tk()` window, applies acrylic blur via `SetWindowCompositionAttribute`, starts tracker and tray.
 - **`src/winapi.py`** — raw ctypes bindings to user32/dwmapi/gdi32/kernel32.
 - **`src/tracker.py`** (`BlurTracker`) — polling loop (~16-50ms `root.after`) that finds the foreground window, validates it, positions the blur overlay, and animates opacity transitions.
-- **`src/config.py`** — loads `config.yaml`, merges user overrides onto defaults, always preserves default exclusion list.
+- **`src/config.py`** — loads `config.yaml`, merges user overrides onto defaults. Prepopulates exclusion lists from defaults only if the key is absent; user can override by providing their own list.
 - **`src/tray.py`** (`TrayController`) — system tray icon in a **daemon thread** with its own Windows message loop. Communicates actions back to main thread via `queue.Queue`.
 
 ## Key quirks
@@ -38,6 +38,8 @@ First run auto-generates `config.yaml` next to the script. No other setup needed
 - Exclusion matching: class name exact match, title substring (case-insensitive), exe name `fnmatch` (case-insensitive). Window state (class, title, exe, visibility, iconic, cloaked) is cached with **200ms TTL**.
 - `runtime_tmpdir='.'` in `FloArc.spec` — PyInstaller temp dir follows CWD. App changes CWD to exe directory on startup. Hard-kill may leave `_MEI*` temp dirs behind.
 - Config on restart: `config.yaml` is read fresh each launch. Config changes take effect on restart.
+- Logging: writes `FloArc.log` next to the exe/script via `logging` module (both file + console).
+- Blur flicker: when a transient excluded window briefly takes focus, the blur stays at the last valid target position instead of disappearing.
 
 ## Project structure
 

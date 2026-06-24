@@ -25,6 +25,7 @@ class BlurTracker:
         self.window_opacity_transitions = {}
         self.window_state_cache = {}
         self._tick_count = 0
+        self._blur_shown = False
         self.blur_settings = cfg.get("blur", {})
         self.window_opacity_settings = cfg.get("windows_opacity", {})
         exclude_settings = cfg.get("exclude", {})
@@ -148,6 +149,11 @@ class BlurTracker:
         if current_rect == self.blur_last_rect:
             return
 
+        flags = winapi.SWP_NOACTIVATE
+        if not self._blur_shown:
+            flags |= winapi.SWP_SHOWWINDOW
+            self._blur_shown = True
+
         winapi.user32.SetWindowPos(
             self.blur_hwnd,
             self.current_target_hwnd,
@@ -155,7 +161,7 @@ class BlurTracker:
             rect.top,
             w,
             h,
-            winapi.SWP_NOACTIVATE | winapi.SWP_SHOWWINDOW,
+            flags,
         )
 
         self.blur_last_rect = current_rect
@@ -329,6 +335,7 @@ class BlurTracker:
             self.current_target_hwnd = None
             self.blur_last_rect = None
             self.blur_fade_restart = False
+            self._blur_shown = False
             winapi.reset_blur_fade(self.blur_hwnd)
             winapi.user32.SetWindowPos(
                 self.blur_hwnd,
@@ -433,6 +440,7 @@ class BlurTracker:
                 self.current_target_hwnd = None
                 self.blur_last_rect = None
                 self.blur_fade_restart = False
+                self._blur_shown = False
                 winapi.reset_blur_fade(self.blur_hwnd)
                 winapi.user32.SetWindowPos(
                     self.blur_hwnd,

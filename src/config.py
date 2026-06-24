@@ -68,11 +68,12 @@ def _merge_default_exclusions(config):
     defaults = DEFAULT_CONFIG.get("exclude", {})
 
     for key in ("classes", "titles", "executables"):
-        merged = []
-        for item in list(exclude.get(key, []) or []) + list(defaults.get(key, []) or []):
-            if item not in merged:
-                merged.append(item)
-        exclude[key] = merged
+        if key not in exclude:
+            exclude[key] = list(defaults.get(key, []) or [])
+        else:
+            user_val = exclude.get(key)
+            if not isinstance(user_val, list):
+                exclude[key] = list(defaults.get(key, []) or [])
 
     return config
 

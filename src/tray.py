@@ -1,10 +1,13 @@
 import ctypes
+import logging
 import queue
 import threading
 from ctypes import byref, sizeof, Structure
 from ctypes import wintypes
 
 user32 = ctypes.windll.user32
+
+logger = logging.getLogger("FloArc.tray")
 shell32 = ctypes.windll.shell32
 kernel32 = ctypes.windll.kernel32
 
@@ -328,12 +331,16 @@ class TrayController:
                 None,
             )
             if command == ID_TRAY_OPEN_CONFIG:
+                logger.info("Action: open config folder")
                 self._actions.put("open_config")
             elif command == ID_TRAY_TOGGLE_PAUSE:
+                logger.info("Action: toggle pause")
                 self._actions.put("toggle_pause")
             elif command == ID_TRAY_RESTART:
+                logger.info("Action: restart")
                 self._actions.put("restart")
             elif command == ID_TRAY_CLOSE:
+                logger.info("Action: close")
                 self._actions.put("close")
         finally:
             user32.DestroyMenu(menu)

@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import sys
@@ -7,6 +8,8 @@ from src import winapi
 from src.config import load_config
 from src.tracker import BlurTracker
 from src.tray import TrayController
+
+logger = logging.getLogger("FloArc")
 
 
 def _get_app_dir():
@@ -27,10 +30,21 @@ def _build_restart_command():
 
 def main():
     os.chdir(APP_DIR)
-    cfg = load_config(CONFIG_FILE)
 
-    print("FloArc started...")
-    print(f"Current config: {CONFIG_FILE}")
+    log_file = os.path.join(APP_DIR, "FloArc.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+        handlers=[
+            logging.FileHandler(log_file, mode="a", encoding="utf-8"),
+            logging.StreamHandler(sys.stdout),
+        ],
+    )
+    logger.info("=== FloArc start ===")
+
+    cfg = load_config(CONFIG_FILE)
+    logger.info("Config loaded from %s", CONFIG_FILE)
 
     root = tk.Tk()
     root.overrideredirect(True)

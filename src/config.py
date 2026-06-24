@@ -1,8 +1,11 @@
 import copy
+import logging
 import os
 import textwrap
 
 import yaml
+
+logger = logging.getLogger("FloArc.config")
 
 DEFAULT_CONFIG_TEMPLATE = textwrap.dedent("""\
 windows_opacity:
@@ -83,6 +86,7 @@ def _normalize_config(config):
 
 def load_config(path):
     if not os.path.exists(path):
+        logger.info("Creating default config at %s", path)
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(DEFAULT_CONFIG_TEMPLATE)
         return copy.deepcopy(DEFAULT_CONFIG)
@@ -90,7 +94,8 @@ def load_config(path):
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-    except (yaml.YAMLError, OSError):
+    except (yaml.YAMLError, OSError) as exc:
+        logger.warning("Config load failed (%s), using defaults", exc)
         return copy.deepcopy(DEFAULT_CONFIG)
 
     return _normalize_config(

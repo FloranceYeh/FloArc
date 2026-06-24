@@ -1,7 +1,10 @@
 import fnmatch
+import logging
 import time
 
 from . import winapi
+
+logger = logging.getLogger("FloArc.tracker")
 
 
 class BlurTracker:
@@ -318,6 +321,7 @@ class BlurTracker:
 
         self.paused = paused
         if paused:
+            logger.info("Paused")
             self._restore_all_window_opacity()
             self.window_opacity_transitions.clear()
             self.window_state_cache.clear()
@@ -335,6 +339,7 @@ class BlurTracker:
                 | winapi.SWP_HIDEWINDOW,
             )
         else:
+            logger.info("Resumed")
             self.opacity_initialized = False
 
     def _iter_valid_windows(self):
@@ -420,6 +425,7 @@ class BlurTracker:
             previous_target_hwnd = self.current_target_hwnd
 
             if next_target_hwnd:
+                logger.debug("Tracking window %s", winapi.get_window_text(next_target_hwnd).strip() or next_target_hwnd)
                 self.current_target_hwnd = next_target_hwnd
                 self.blur_last_rect = None
                 self.blur_fade_restart = True
@@ -447,6 +453,7 @@ class BlurTracker:
         self.root.after(next_delay, self.tick)
 
     def cleanup(self):
+        logger.info("Cleaning up")
         self.window_opacity_transitions.clear()
         self.window_state_cache.clear()
         for hwnd in list(self.modified_window_states):

@@ -31,9 +31,7 @@ class BlurTracker:
         exclude_settings = cfg.get("exclude", {})
         self.exclude_classes = frozenset(exclude_settings.get("classes", []))
         self.exclude_titles = tuple(exclude_settings.get("titles", []))
-        self.exclude_executables = tuple(
-            pattern.lower() for pattern in exclude_settings.get("executables", [])
-        )
+        self.exclude_executables = tuple(exclude_settings.get("executables", []))
 
     def _get_blur_settings(self):
         return self.blur_settings
@@ -71,7 +69,7 @@ class BlurTracker:
             exe_name = winapi.get_window_exe_name(hwnd)
             if exe_name:
                 for excluded_exe in self.exclude_executables:
-                    if fnmatch.fnmatchcase(exe_name, excluded_exe):
+                    if fnmatch.fnmatch(exe_name, excluded_exe):
                         excluded = True
                         break
 

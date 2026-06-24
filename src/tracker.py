@@ -7,6 +7,8 @@ from . import winapi
 class BlurTracker:
     WINDOW_STATE_CACHE_TTL = 0.2
 
+    CACHE_PURGE_INTERVAL = 500
+
     def __init__(self, cfg, root, blur_hwnd):
         self.cfg = cfg
         self.root = root
@@ -19,6 +21,7 @@ class BlurTracker:
         self.modified_window_states = {}
         self.window_opacity_transitions = {}
         self.window_state_cache = {}
+        self._tick_count = 0
         self.blur_settings = cfg.get("blur", {})
         self.window_opacity_settings = cfg.get("windows_opacity", {})
         exclude_settings = cfg.get("exclude", {})
@@ -317,6 +320,7 @@ class BlurTracker:
         if paused:
             self._restore_all_window_opacity()
             self.window_opacity_transitions.clear()
+            self.window_state_cache.clear()
             self.opacity_initialized = False
             self.current_target_hwnd = None
             self.blur_last_rect = None
@@ -392,10 +396,20 @@ class BlurTracker:
             else:
                 self._schedule_window_opacity_transition(current_hwnd, focused_alpha, focus_duration)
 
+    def _purge_stale_cache(self):
+        stale = [hwnd for hwnd, state in self.window_state_cache.items()
+                 if not winapi.user32.IsWindow(hwnd)]
+        for hwnd in stale:
+            self.window_state_cache.pop(hwnd, None)
+
     def tick(self):
         if self.paused:
             self.root.after(200, self.tick)
             return
+
+        self._tick_count += 1
+        if self._tick_count % self.CACHE_PURGE_INTERVAL == 0:
+            self._purge_stale_cache()
 
         fg_hwnd = winapi.user32.GetForegroundWindow()
         next_target_hwnd = fg_hwnd if self.is_valid_window(fg_hwnd) else None
@@ -434,6 +448,7 @@ class BlurTracker:
 
     def cleanup(self):
         self.window_opacity_transitions.clear()
+        self.window_state_cache.clear()
         for hwnd in list(self.modified_window_states):
             self._restore_window_opacity(hwnd)
 

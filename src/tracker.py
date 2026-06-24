@@ -424,34 +424,33 @@ class BlurTracker:
             self._purge_stale_cache()
 
         fg_hwnd = winapi.user32.GetForegroundWindow()
-        next_target_hwnd = fg_hwnd if self.is_valid_window(fg_hwnd) else None
 
-        self._sync_initial_window_opacity(next_target_hwnd)
+        self._sync_initial_window_opacity(fg_hwnd if self.is_valid_window(fg_hwnd) else None)
 
-        if next_target_hwnd != self.current_target_hwnd:
-            previous_target_hwnd = self.current_target_hwnd
-
-            if next_target_hwnd:
-                logger.debug("Tracking window %s", winapi.get_window_text(next_target_hwnd).strip() or next_target_hwnd)
-                self.current_target_hwnd = next_target_hwnd
+        if fg_hwnd and self.is_valid_window(fg_hwnd):
+            if fg_hwnd != self.current_target_hwnd:
+                previous_target_hwnd = self.current_target_hwnd
+                logger.debug("Tracking window %s", winapi.get_window_text(fg_hwnd).strip() or fg_hwnd)
+                self.current_target_hwnd = fg_hwnd
                 self.blur_last_rect = None
                 self.blur_fade_restart = True
-            else:
-                self.current_target_hwnd = None
-                self.blur_last_rect = None
-                self.blur_fade_restart = False
-                self._blur_shown = False
-                winapi.reset_blur_fade(self.blur_hwnd)
-                winapi.user32.SetWindowPos(
-                    self.blur_hwnd,
-                    0, 0, 0, 0, 0,
-                    winapi.SWP_NOMOVE
-                    | winapi.SWP_NOSIZE
-                    | winapi.SWP_NOACTIVATE
-                    | winapi.SWP_HIDEWINDOW,
-                )
-
-            self._update_window_opacity(previous_target_hwnd, self.current_target_hwnd)
+                self._update_window_opacity(previous_target_hwnd, self.current_target_hwnd)
+        elif self.current_target_hwnd and not self.is_valid_window(self.current_target_hwnd):
+            previous_target_hwnd = self.current_target_hwnd
+            self.current_target_hwnd = None
+            self.blur_last_rect = None
+            self.blur_fade_restart = False
+            self._blur_shown = False
+            winapi.reset_blur_fade(self.blur_hwnd)
+            winapi.user32.SetWindowPos(
+                self.blur_hwnd,
+                0, 0, 0, 0, 0,
+                winapi.SWP_NOMOVE
+                | winapi.SWP_NOSIZE
+                | winapi.SWP_NOACTIVATE
+                | winapi.SWP_HIDEWINDOW,
+            )
+            self._update_window_opacity(previous_target_hwnd, None)
 
         self._update_window_opacity_transitions()
         if self.current_target_hwnd:
